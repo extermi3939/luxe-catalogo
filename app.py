@@ -332,7 +332,7 @@ FOOTER_HTML = f'''
     <p style="margin-top:30px; font-size:0.6em; color:#444; text-transform:uppercase; letter-spacing:1px;">&copy; 2026 Luxe Eats - All Rights Reserved</p>
 </footer>
 
-<a href="https://wa.me/{WHATSAPP_NUM}?text=Hola!%20Tengo%20una%20consulta%20con%20el%20pedido" class="wsp-float" target="_blank">
+<a href="https://wa.me/{9543888360550}?text=Hola!%20Tengo%20una%20consulta%20con%20el%20pedido" class="wsp-float" target="_blank">
     <i class="fab fa-whatsapp"></i>
 </a>
 '''
