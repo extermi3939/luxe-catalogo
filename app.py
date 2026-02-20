@@ -19,11 +19,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True) 
 
 # --- DATOS DEL NEGOCIO (Modifica estos valores) ---
-WHATSAPP_NUM = "5493881234567" 
-ALIAS_MP = "LUXE.EATS.JUJUY"
+WHATSAPP_NUM = "5493888360550"
+ALIAS_MP = "franco.rvlj"
 INSTAGRAM_URL = "https://instagram.com/tu_usuario"
-TIKTOK_URL = "https://tiktok.com/@tu_usuario"
-FACEBOOK_URL = "https://facebook.com/tu_pagina"
+TIKTOK_URL = "https://tiktok.com/"@francorojas2425"
+FACEBOOK_URL = "https://www.facebook.com/share/1EMCWgtPYc/"
 GOOGLE_REVIEWS_URL = "https://g.page/r/tu_link/review"
 
 HORA_APERTURA = 19 
@@ -64,57 +64,145 @@ def esta_abierto():
 
 ABIERTO = esta_abierto()
 
-# --- ESTILOS CSS ---
 BASE_STYLE = '''
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta property="og:title" content="Luxe Eats - Catálogo Digital">
-<meta property="og:description" content="Hacé tu pedido online de forma rápida y fácil. Sin comisiones.">
+<meta property="og:title" content="Luxe Eats - Colección Gastronómica">
+<meta property="og:description" content="Una experiencia culinaria exclusiva en la palma de tu mano.">
 <meta property="og:image" content="https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1000&auto=format&fit=crop">
-<meta property="og:url" content="http://127.0.0.1:8081">
+<meta property="og:url" content="https://luxe-catalogo.onrender.com">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-    :root { --accent: #E2B04E; --bg: #0C0C0C; --card-bg: #1A1A1A; --text: #F5F5F5; --sub: #A0A0A0; --wsp: #25d366; --red: #ff4444; }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@200;400;600&display=swap');
     
-    nav { position: fixed; width: 100%; top: 0; padding: 15px 5%; z-index: 1000; background: rgba(12,12,12,0.95); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-family: 'Playfair Display', serif; font-size: 1.4em; color: var(--accent); text-decoration: none; font-weight: 900; }
-    
-    .container { padding: 100px 5% 50px; max-width: 1200px; margin: 0 auto; min-height: 80vh; }
-    .section-title { font-family: 'Playfair Display', serif; font-size: 2.5em; text-align: center; margin-bottom: 30px; }
-    .section-title span { color: var(--accent); }
+    :root { 
+        --accent: #D4AF37; /* Dorado Champagne */
+        --bg: #050505; 
+        --card-bg: #0A0A0A; 
+        --text: #FFFFFF; 
+        --sub: #888888; 
+        --border: rgba(212, 175, 55, 0.2);
+    }
 
-    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    .food-card { background: var(--card-bg); border-radius: 20px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; }
-    .food-card:hover { transform: translateY(-5px); border-color: var(--accent); }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
     
-    .img-box { width: 100%; height: 200px; overflow: hidden; }
-    .img-box img { width: 100%; height: 100%; object-fit: cover; }
+    body { 
+        background: var(--bg); 
+        color: var(--text); 
+        overflow-x: hidden; 
+        line-height: 1.6;
+    }
     
-    .card-info { padding: 20px; }
-    .btn-buy { display: block; width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: 15px; text-transform: uppercase; text-decoration: none; text-align: center; }
-    .btn-buy:disabled { background: #333; color: #666; cursor: not-allowed; }
+    /* Navbar Minimalista */
+    nav { 
+        position: fixed; width: 100%; top: 0; padding: 20px 8%; 
+        z-index: 1000; background: rgba(5,5,5,0.9); 
+        backdrop-filter: blur(20px); 
+        border-bottom: 1px solid var(--border); 
+        display: flex; justify-content: space-between; align-items: center; 
+    }
+    .logo { 
+        font-family: 'Playfair Display', serif; 
+        font-size: 1.6em; color: var(--text); 
+        text-decoration: none; font-weight: 700; 
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+    
+    .container { padding: 120px 8% 50px; max-width: 1400px; margin: 0 auto; }
+    
+    .section-title { 
+        font-family: 'Playfair Display', serif; 
+        font-size: 3.5em; text-align: center; margin-bottom: 50px;
+        font-weight: 400; font-style: italic;
+    }
 
-    /* Carrito lateral */
-    #cart-panel { position: fixed; right: -100%; top: 0; width: 400px; height: 100%; background: #000; z-index: 2000; padding: 30px; transition: 0.4s; box-shadow: -10px 0 30px rgba(0,0,0,0.8); overflow-y: auto; }
+    /* Grid de Productos Premium */
+    .menu-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+        gap: 40px; 
+    }
+    
+    .food-card { 
+        background: var(--card-bg); 
+        overflow: hidden; 
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        border-bottom: 2px solid transparent;
+    }
+    
+    .food-card:hover { 
+        transform: translateY(-10px); 
+        border-bottom: 2px solid var(--accent);
+    }
+    
+    .img-box { 
+        width: 100%; height: 400px; /* Fotos más altas para más impacto */
+        overflow: hidden; 
+        filter: saturate(0.8);
+        transition: 0.5s;
+    }
+    
+    .food-card:hover .img-box { filter: saturate(1.1); }
+    .img-box img { width: 100%; height: 100%; object-fit: cover; transition: 0.8s; }
+    .food-card:hover .img-box img { transform: scale(1.1); }
+    
+    .card-info { padding: 25px 15px; text-align: center; }
+    .card-info h3 { font-family: 'Playfair Display', serif; font-size: 1.8em; margin-bottom: 10px; }
+    .card-info p { color: var(--sub); font-size: 0.9em; letter-spacing: 1px; margin-bottom: 15px; }
+
+    .price { 
+        display: block; font-size: 1.2em; 
+        color: var(--accent); font-weight: 200; 
+        margin-bottom: 20px; letter-spacing: 3px;
+    }
+
+    .btn-buy { 
+        display: inline-block; padding: 12px 35px; 
+        border: 1px solid var(--accent); 
+        color: var(--accent); background: transparent;
+        border-radius: 0px; /* Recto = Elegante */
+        font-weight: 400; cursor: pointer; 
+        text-transform: uppercase; letter-spacing: 2px;
+        transition: 0.3s; text-decoration: none;
+    }
+    
+    .btn-buy:hover { background: var(--accent); color: #000; }
+
+    /* Panel de Carrito Moderno */
+    #cart-panel { 
+        position: fixed; right: -100%; top: 0; width: 450px; height: 100%; 
+        background: #000; z-index: 2000; padding: 50px 30px; 
+        transition: 0.6s cubic-bezier(0.77, 0, 0.175, 1); 
+        border-left: 1px solid var(--border);
+    }
     #cart-panel.active { right: 0; }
-    .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 10px; }
-    .qty-btn { background: #333; color: white; border: none; width: 28px; height: 28px; border-radius: 5px; cursor: pointer; font-weight: bold; }
     
-    .method-box { background: #111; padding: 15px; border-radius: 10px; margin-top: 15px; }
-    input, select, textarea { width: 100%; padding: 12px; margin-top: 8px; background: #000; border: 1px solid #333; color: #fff; border-radius: 8px; font-size: 16px; }
+    input, select, textarea { 
+        background: transparent; border: none; 
+        border-bottom: 1px solid #333; 
+        border-radius: 0; color: #fff; 
+        margin-bottom: 20px; padding: 15px 5px;
+    }
+    
+    input:focus { border-bottom: 1px solid var(--accent); outline: none; }
 
-    /* Botón Flotante y Footer */
-    .wsp-float { position: fixed; width: 60px; height: 60px; bottom: 20px; right: 20px; background-color: #25d366; color: #FFF; border-radius: 50px; text-align: center; font-size: 30px; box-shadow: 2px 2px 3px #000; z-index: 100; display: flex; align-items: center; justify-content: center; text-decoration: none; }
-    footer { background: #080808; padding: 40px 5%; border-top: 1px solid #222; text-align: center; margin-top: 50px; }
-    .social-links { display: flex; justify-content: center; gap: 25px; margin: 20px 0; }
-    .social-links a { color: var(--accent); font-size: 1.8em; transition: 0.3s; }
-    .reviews-btn { display: inline-block; padding: 10px 20px; border: 1px solid var(--accent); color: var(--accent); text-decoration: none; border-radius: 30px; font-size: 0.8em; font-weight: 800; margin-top: 10px; }
+    /* Botón flotante sutil */
+    .wsp-float { 
+        position: fixed; bottom: 30px; right: 30px; 
+        color: var(--accent); font-size: 24px; 
+        border: 1px solid var(--accent); width: 60px; height: 60px;
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        text-decoration: none; transition: 0.3s;
+        background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+    }
+    .wsp-float:hover { background: var(--accent); color: #000; }
 
-    @media (max-width: 480px) { #cart-panel { width: 100%; } }
+    @media (max-width: 480px) { 
+        .section-title { font-size: 2.2em; }
+        #cart-panel { width: 100%; } 
+    }
 </style>
 '''
 
