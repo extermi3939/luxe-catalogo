@@ -303,7 +303,7 @@ function checkout() {{
     if(nt) msg += "📝 *Notas:* " + nt + "\\n";
     msg += "💰 *TOTAL A PAGAR: $" + total + "*\\n━━━━━━━━━━━━━━━\\n\\n💳 *Alias para Transferencia:* {ALIAS_MP}";
 
-    window.open("https://wa.me/{WHATSAPP_NUM}?text=" + encodeURIComponent(msg), "_blank");
+    window.open("https://wa.me/5493888360550}?text=" + encodeURIComponent(msg), "_blank");
     cart = []; localStorage.removeItem('luxe_cart'); updateCart(); toggleCart(false);
 }}
 
