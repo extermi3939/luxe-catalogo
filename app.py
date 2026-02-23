@@ -1,6 +1,6 @@
-import sqlite3
 import os
-from flask import Flask, request, redirect, url_for, session, jsonify
+from flask import Flask, request, redirect, url_for, session, render_template_string
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -9,67 +9,63 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+# --- CONFIGURACIÓN DE SEGURIDAD Y BASE DE DATOS ---
 app.secret_key = os.getenv('SECRET_KEY', 'luxe_eats_2026_premium_key_shhh')
 
-# --- CONFIGURACIÓN ---
-UPLOAD_FOLDER = 'static/menu'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True) 
+# Adaptación de URL para SQLAlchemy (Postgres)
+database_url = os.getenv('DATABASE_URL')
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-# --- DATOS DEL NEGOCIO ---
-WHATSAPP_NUM = "5493888360550"
-ALIAS_MP = "franco.rvlj"
-INSTAGRAM_URL = "https://instagram.com/tu_usuario"
-TIKTOK_URL = "https://tiktok.com/@francorojas2425"
-FACEBOOK_URL = "https://www.facebook.com/share/1EMCWgtPYc/"
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///gastronomia.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-def init_db():
-    conn = sqlite3.connect('gastronomia.db')
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS menu (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        categoria TEXT, nombre TEXT, descripcion TEXT, 
-        precio INTEGER, imagen TEXT, stock INTEGER DEFAULT 1, combo INTEGER DEFAULT 0)''')
-    
-    cursor.execute('''CREATE TABLE IF NOT EXISTS settings (
-        id INTEGER PRIMARY KEY, hora_apertura INTEGER, hora_cierre INTEGER, cierre_forzado INTEGER DEFAULT 0)''')
-    
-    cursor.execute('''CREATE TABLE IF NOT EXISTS config (
-        id INTEGER PRIMARY KEY, usuario TEXT, password TEXT)''')
-    
-    # Asegurar columnas nuevas
-    try: cursor.execute("ALTER TABLE settings ADD COLUMN cierre_forzado INTEGER DEFAULT 0")
-    except: pass
+db = SQLAlchemy(app)
 
-    cursor.execute("SELECT COUNT(*) FROM settings")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO settings (id, hora_apertura, hora_cierre, cierre_forzado) VALUES (1, 19, 24, 0)")
+# --- MODELOS DE DATOS ---
+class Menu(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    categoria = db.Column(db.String(50))
+    nombre = db.Column(db.String(100))
+    descripcion = db.Column(db.Text)
+    precio = db.Column(db.Integer)
+    imagen = db.Column(db.String(255))
+    stock = db.Column(db.Integer, default=1)
+    combo = db.Column(db.Integer, default=0)
 
-    cursor.execute("SELECT COUNT(*) FROM config")
-    if cursor.fetchone()[0] == 0:
-        hashed_pw = generate_password_hash('cocina2026')
-        cursor.execute("INSERT INTO config (usuario, password) VALUES (?, ?)", ('chef', hashed_pw))
-    
-    conn.commit()
-    conn.close()
+class Settings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    hora_apertura = db.Column(db.Integer, default=19)
+    hora_cierre = db.Column(db.Integer, default=24)
+    cierre_forzado = db.Column(db.Integer, default=0)
 
-init_db()
+class Config(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    usuario = db.Column(db.String(50))
+    password = db.Column(db.String(255))
 
-def get_db_connection():
-    conn = sqlite3.connect('gastronomia.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# --- INICIALIZACIÓN DE TABLAS ---
+with app.app_context():
+    db.create_all()
+    if not Config.query.filter_by(usuario='chef').first():
+        db.session.add(Config(usuario='chef', password=generate_password_hash('cocina2026')))
+    if not Settings.query.get(1):
+        db.session.add(Settings(id=1, hora_apertura=19, hora_cierre=24, cierre_forzado=0))
+    db.session.commit()
 
+# --- VARIABLES DE NEGOCIO ---
+WHATSAPP_NUM = os.getenv('WHATSAPP_NUM', '5493888360550')
+ALIAS_MP = os.getenv('ALIAS_MP', 'franco.rvlj')
+
+# --- LÓGICA DE ESTADO ---
 def esta_abierto():
-    conn = get_db_connection()
-    h = conn.execute('SELECT * FROM settings WHERE id = 1').fetchone()
-    conn.close()
-    if h['cierre_forzado'] == 1: return False
-    ap, ci = h['hora_apertura'], h['hora_cierre']
+    h = Settings.query.get(1)
+    if h.cierre_forzado == 1: return False
     ahora = datetime.now().hour
-    return ap <= ahora < ci if ap < ci else ahora >= ap or ahora < ci
+    return h.hora_apertura <= ahora < h.hora_cierre if h.hora_apertura < h.hora_cierre else ahora >= h.hora_apertura or ahora < h.hora_cierre
 
-# --- ESTILOS MEJORADOS (Buscador y Zonas) ---
+# --- COMPONENTES HTML/CSS ---
 BASE_STYLE = f'''
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -84,7 +80,6 @@ BASE_STYLE = f'''
     .logo span {{ color: var(--accent); }}
     .container {{ padding: 100px 5% 50px; max-width: 1200px; margin: 0 auto; }}
     .search-box {{ width: 100%; padding: 12px 20px; background: #111; border: 1px solid #333; border-radius: 25px; color: white; margin-bottom: 30px; outline: none; }}
-    .search-box:focus {{ border-color: var(--accent); }}
     .menu-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }}
     .food-card {{ background: var(--card); border-radius: 15px; overflow: hidden; border: 1px solid #1A1A1A; }}
     .img-box img {{ width: 100%; height: 200px; object-fit: cover; }}
@@ -97,105 +92,20 @@ BASE_STYLE = f'''
 </style>
 '''
 
-@app.route('/')
-def index():
-    conn = get_db_connection()
-    combos = conn.execute('SELECT * FROM menu WHERE combo = 1 AND stock = 1').fetchall()
-    conn.close()
-    
-    combos_cards = ""
-    for c in combos:
-        desc = c['descripcion'] if c['descripcion'] and c['descripcion'] != 'None' else ''
-        combos_cards += f'''
-        <div class="food-card item-card" data-name="{c['nombre'].lower()}">
-            <div class="img-box"><img src="{c['imagen']}"></div>
-            <div class="card-info">
-                <h3>{c['nombre']}</h3>
-                <p style="color:#888; font-size:0.8em; margin:5px 0;">{desc}</p>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                    <span style="color:var(--accent); font-weight:800;">${c['precio']}</span>
-                    <button class="btn-buy" onclick="addToCart('{c['nombre']}', {c['precio']})" style="width:auto; padding:5px 15px;">+ AGREGAR</button>
-                </div>
-            </div>
-        </div>'''
-
-    return f'''<html><head>{BASE_STYLE}</head><body>
-    <nav>
-        <a href="/" class="logo">LUXE<span>EATS</span></a>
-        <div onclick="toggleCart()" style="cursor:pointer; color:var(--accent); font-weight:800;">
-            <i class="fas fa-shopping-bag"></i> <span id="cart-total-nav">$0</span>
-        </div>
-    </nav>
-    <div class="container">
-        <input type="text" class="search-box" id="searchInput" placeholder="¿Qué te gustaría comer hoy?" onkeyup="filterMenu()">
-        <h2 style="margin-bottom:20px; font-family:Playfair Display;">Combos <span>Destacados</span></h2>
-        <div class="menu-grid" id="menuGrid">{combos_cards}</div>
-        <div style="margin-top:40px; display:flex; gap:10px;">
-            <a href="/menu/platos" class="btn-buy" style="text-align:center; text-decoration:none; background:white; color:black; flex:1;">VER PLATOS</a>
-            <a href="/menu/bebidas" class="btn-buy" style="text-align:center; text-decoration:none; flex:1;">BEBIDAS</a>
-        </div>
-    </div>
-    {footer_html()}
-    {generate_cart_ui()}
-    <script>
-        function filterMenu() {{
-            let input = document.getElementById('searchInput').value.toLowerCase();
-            let cards = document.getElementsByClassName('item-card');
-            for (let card of cards) {{
-                let name = card.getAttribute('data-name');
-                card.style.display = name.includes(input) ? "block" : "none";
-            }}
-        }}
-    </script>
-    <a href="https://wa.me/{WHATSAPP_NUM}" class="wsp-float"><i class="fab fa-whatsapp"></i></a>
-    </body></html>'''
-
-@app.route('/menu/<cat>')
-def menu_page(cat):
-    conn = get_db_connection()
-    items = conn.execute('SELECT * FROM menu WHERE categoria = ?', (cat,)).fetchall()
-    conn.close()
-    cards = "".join([f'''<div class="food-card item-card" data-name="{i['nombre'].lower()}">
-            <div class="img-box"><img src="{i["imagen"]}"></div>
-            <div class="card-info">
-                <h3>{i["nombre"]}</h3>
-                <p style="color:#888; font-size:0.8em; margin:5px 0;">{i["descripcion"] if i["descripcion"] and i["descripcion"] != "None" else ""}</p>
-                <span style="color:var(--accent); font-weight:800;">${i["precio"]}</span>
-                <button class="btn-buy" onclick="addToCart('{i["nombre"]}', {i["precio"]})" style="margin-top:10px;" {"" if i["stock"]==1 else "disabled"}>
-                    {"AGREGAR" if i["stock"]==1 else "AGOTADO"}
-                </button>
-            </div>
-        </div>''' for i in items])
-    return f'''<html><head>{BASE_STYLE}</head><body>
-    <nav><a href="/" class="logo">LUXE<span>EATS</span></a><div onclick="toggleCart()" style="cursor:pointer;"><i class="fas fa-shopping-bag"></i> <span id="cart-total-nav"></span></div></nav>
-    <div class="container">
-        <input type="text" class="search-box" id="searchInput" placeholder="Buscar en {cat}..." onkeyup="filterMenu()">
-        <h1 style="font-family:Playfair Display; margin-bottom:20px;">{cat.upper()}</h1>
-        <div class="menu-grid" id="menuGrid">{cards}</div>
-    </div>
-    <script>function filterMenu() {{ let input = document.getElementById('searchInput').value.toLowerCase(); let cards = document.getElementsByClassName('item-card'); for (let card of cards) card.style.display = card.getAttribute('data-name').includes(input) ? "block" : "none"; }}</script>
-    {generate_cart_ui()}
-    </body></html>'''
-
 def generate_cart_ui():
     abierto = esta_abierto()
     return f'''
     <div id="cart-panel">
         <h2 style="font-family:Playfair Display; margin-bottom:20px;">Mi Pedido</h2>
         <div id="cart-items" style="margin-bottom:20px;"></div>
-        
         <input type="text" id="user-name" placeholder="Tu Nombre">
-        
-        <label style="font-size:0.8em; color:var(--accent);">Zona de Envío:</label>
         <select id="envio-zona" onchange="updateCart()">
             <option value="0">Retiro en Local ($0)</option>
             <option value="300">Zona Centro ($300)</option>
             <option value="500">Barrios Lejanos ($500)</option>
         </select>
-        
         <div id="addr-box" style="display:none;"><input type="text" id="user-address" placeholder="Dirección y Altura"></div>
-        <textarea id="user-notes" placeholder="¿Alguna sugerencia? (ej. sin aderezos)"></textarea>
-        
+        <textarea id="user-notes" placeholder="¿Alguna sugerencia? (ej. sin cebolla)"></textarea>
         <div style="border-top:1px solid #222; padding-top:15px; margin-top:15px;">
             <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="cart-subtotal">$0</span></div>
             <div style="display:flex; justify-content:space-between;"><span>Envío:</span><span id="cart-envio">$0</span></div>
@@ -203,9 +113,8 @@ def generate_cart_ui():
                 <span>TOTAL:</span><span id="cart-total">$0</span>
             </div>
             <button class="btn-buy" onclick="checkout()" style="margin-top:20px;" {"" if abierto else "disabled"}>
-                { "CONFIRMAR POR WHATSAPP" if abierto else "LOCAL CERRADO" }
+                { "CONFIRMAR PEDIDO" if abierto else "LOCAL CERRADO" }
             </button>
-            <button onclick="toggleCart()" style="width:100%; background:none; border:none; color:gray; margin-top:10px; cursor:pointer;">Continuar Comprando</button>
         </div>
     </div>
     <script>
@@ -214,7 +123,7 @@ def generate_cart_ui():
     function addToCart(name, price) {{
         let item = cart.find(i => i.name === name);
         if(item) item.qty++; else cart.push({{name, price, qty: 1}});
-        updateCart(); toggleCart();
+        updateCart(); if(!document.getElementById('cart-panel').classList.contains('active')) toggleCart();
     }}
     function changeQty(idx, delta) {{
         cart[idx].qty += delta;
@@ -229,9 +138,9 @@ def generate_cart_ui():
             container.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:15px;">
                 <div><b>${{item.name}}</b><br><small>$${{item.price}}</small></div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <button onclick="changeQty(${{idx}},-1)" style="background:#222; border:none; color:white; width:25px; border-radius:4px;">-</button>
+                    <button onclick="changeQty(${{idx}},-1)" style="background:#222; width:25px; border-radius:4px; color:white; border:none;">-</button>
                     <span>${{item.qty}}</span>
-                    <button onclick="changeQty(${{idx}},1)" style="background:#222; border:none; color:white; width:25px; border-radius:4px;">+</button>
+                    <button onclick="changeQty(${{idx}},1)" style="background:#222; width:25px; border-radius:4px; color:white; border:none;">+</button>
                 </div>
             </div>`;
         }});
@@ -247,16 +156,13 @@ def generate_cart_ui():
         let name = document.getElementById('user-name').value;
         let envio = document.getElementById('envio-zona');
         let envioText = envio.options[envio.selectedIndex].text;
-        let notes = document.getElementById('user-notes').value;
-        if(!name || cart.length === 0) return alert("Por favor completa tu nombre");
-        
-        let msg = "🛒 *NUEVO PEDIDO LUXE EATS*\\n👤 *Cliente:* " + name + "\\n\\n";
-        cart.forEach(i => msg += "▪️ " + i.qty + "x " + i.name + " ($" + (i.price*i.qty) + ")\\n");
+        if(!name || cart.length === 0) return alert("Completa los datos.");
+        let msg = "🛒 *NUEVO PEDIDO*\\n👤 *Cliente:* " + name + "\\n\\n";
+        cart.forEach(i => msg += "▫️ " + i.qty + "x " + i.name + "\\n");
         msg += "\\n🛵 *Envío:* " + envioText;
-        if(envio.value > 0) msg += "\\n🏠 *Dirección:* " + document.getElementById('user-address').value;
-        if(notes.trim()) msg += "\\n📝 *Notas:* " + notes;
-        msg += "\\n💰 *TOTAL FINAL:* " + document.getElementById('cart-total').innerText;
-        
+        if(envio.value > 0) msg += "\\n🏠 *Dir:* " + document.getElementById('user-address').value;
+        msg += "\\n📝 *Notas:* " + document.getElementById('user-notes').value;
+        msg += "\\n💰 *TOTAL:* " + document.getElementById('cart-total').innerText;
         window.open("https://wa.me/{WHATSAPP_NUM}?text=" + encodeURIComponent(msg));
         cart = []; updateCart(); toggleCart();
     }}
@@ -264,82 +170,115 @@ def generate_cart_ui():
     </script>
     '''
 
-def footer_html():
-    return f'''<footer style="padding:40px 5%; text-align:center; background:#080808; border-top:1px solid #111;">
-        <p style="color:var(--accent); font-family:Playfair Display; letter-spacing:2px;">LUXE EATS</p>
-        <div style="margin:15px 0; display:flex; justify-content:center; gap:20px;">
-            <a href="{INSTAGRAM_URL}" style="color:white; font-size:1.5em;"><i class="fab fa-instagram"></i></a>
-            <a href="{TIKTOK_URL}" style="color:white; font-size:1.5em;"><i class="fab fa-tiktok"></i></a>
+# --- RUTAS ---
+@app.route('/')
+def index():
+    combos = Menu.query.filter_by(combo=1, stock=1).all()
+    combos_html = "".join([f'''
+    <div class="food-card item-card" data-name="{c.nombre.lower()}">
+        <div class="img-box"><img src="{c.imagen}"></div>
+        <div class="card-info">
+            <h3>{c.nombre}</h3>
+            <p style="color:#888; font-size:0.8em;">{c.descripcion if c.descripcion and c.descripcion != "None" else ""}</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                <span style="color:var(--accent); font-weight:800;">${c.precio}</span>
+                <button class="btn-buy" onclick="addToCart('{c.nombre}', {c.precio})" style="width:auto; padding:5px 15px;">+ AGREGAR</button>
+            </div>
         </div>
-    </footer>'''
+    </div>''' for c in combos])
+
+    return render_template_string(f'''
+    <html><head>{BASE_STYLE}</head><body>
+    <nav><a href="/" class="logo">LUXE<span>EATS</span></a><div onclick="toggleCart()" style="cursor:pointer; color:var(--accent);"><i class="fas fa-shopping-bag"></i> <span id="cart-total-nav">$0</span></div></nav>
+    <div class="container">
+        <input type="text" class="search-box" id="searchInput" placeholder="Buscar plato o bebida..." onkeyup="filterMenu()">
+        <h2 style="font-family:Playfair Display; margin-bottom:20px;">Combos <span>Especiales</span></h2>
+        <div class="menu-grid" id="menuGrid">{combos_html}</div>
+        <div style="margin-top:40px; display:flex; gap:10px;">
+            <a href="/menu/platos" class="btn-buy" style="text-align:center; text-decoration:none; background:white; color:black; flex:1;">PLATOS</a>
+            <a href="/menu/bebidas" class="btn-buy" style="text-align:center; text-decoration:none; flex:1;">BEBIDAS</a>
+        </div>
+    </div>
+    {generate_cart_ui()}
+    <script>function filterMenu() {{ let input = document.getElementById('searchInput').value.toLowerCase(); let cards = document.getElementsByClassName('item-card'); for (let card of cards) card.style.display = card.getAttribute('data-name').includes(input) ? "block" : "none"; }}</script>
+    </body></html>''')
+
+@app.route('/menu/<cat>')
+def menu_page(cat):
+    items = Menu.query.filter_by(categoria=cat).all()
+    cards = "".join([f'''<div class="food-card item-card" data-name="{i.nombre.lower()}">
+        <div class="img-box"><img src="{i.imagen}"></div>
+        <div class="card-info">
+            <h3>{i.nombre}</h3>
+            <p style="color:#888; font-size:0.8em;">{i.descripcion if i.descripcion and i.descripcion != "None" else ""}</p>
+            <span style="color:var(--accent); font-weight:800;">${i.precio}</span>
+            <button class="btn-buy" onclick="addToCart('{i.nombre}', {i.precio})" style="margin-top:10px;" {"" if i.stock==1 else "disabled"}>
+                {"AGREGAR" if i.stock==1 else "AGOTADO"}
+            </button>
+        </div>
+    </div>''' for i in items])
+    return render_template_string(f'''<html><head>{BASE_STYLE}</head><body>
+    <nav><a href="/" class="logo">LUXE<span>EATS</span></a><div onclick="toggleCart()" style="cursor:pointer;"><i class="fas fa-shopping-bag"></i> <span id="cart-total-nav"></span></div></nav>
+    <div class="container"><h1 style="font-family:Playfair Display; margin-bottom:20px;">{cat.upper()}</h1><div class="menu-grid">{cards}</div></div>
+    {generate_cart_ui()}
+    </body></html>''')
 
 @app.route('/panel_chef_privado', methods=['GET', 'POST'])
 def admin_panel():
     if not session.get('logged_in'): return redirect('/cocina_secreta')
-    conn = get_db_connection()
+    h = Settings.query.get(1)
     if request.method == 'POST':
         if 'update_hours' in request.form:
-            cierre = 1 if request.form.get('cierre_forzado') else 0
-            conn.execute('UPDATE settings SET hora_apertura = ?, hora_cierre = ?, cierre_forzado = ? WHERE id = 1', 
-                         (request.form.get('hora_apertura'), request.form.get('hora_cierre'), cierre))
+            h.hora_apertura = int(request.form.get('hora_apertura'))
+            h.hora_cierre = int(request.form.get('hora_cierre'))
+            h.cierre_forzado = 1 if request.form.get('cierre_forzado') else 0
         elif 'delete_id' in request.form:
-            conn.execute('DELETE FROM menu WHERE id = ?', (request.form['delete_id'],))
+            item = Menu.query.get(request.form['delete_id'])
+            if item: db.session.delete(item)
         elif 'toggle_stock' in request.form:
-            nuevo = 0 if request.form.get('current_stock') == '1' else 1
-            conn.execute('UPDATE menu SET stock = ? WHERE id = ?', (nuevo, request.form['toggle_stock']))
+            item = Menu.query.get(request.form['toggle_stock'])
+            if item: item.stock = 0 if item.stock == 1 else 1
         else:
-            n = request.form.get('nombre'); p = request.form.get('precio')
-            if n and p:
-                file = request.files.get('foto')
-                img = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500"
-                if file and file.filename != '':
-                    fn = secure_filename(file.filename); file.save(os.path.join(app.config['UPLOAD_FOLDER'], fn)); img = f'/static/menu/{fn}'
-                conn.execute('INSERT INTO menu (categoria, nombre, descripcion, precio, imagen, combo) VALUES (?,?,?,?,?,?)', 
-                             (request.form.get('categoria'), n, request.form.get('descripcion'), p, img, 1 if request.form.get('es_combo') else 0))
-        conn.commit()
+            n = request.form.get('nombre')
+            if n:
+                new_item = Menu(nombre=n, precio=request.form.get('precio'), categoria=request.form.get('categoria'), 
+                               descripcion=request.form.get('descripcion'), imagen=request.form.get('img_url'),
+                               combo=1 if request.form.get('es_combo') else 0)
+                db.session.add(new_item)
+        db.session.commit()
         return redirect('/panel_chef_privado')
     
-    items = conn.execute('SELECT * FROM menu ORDER BY combo DESC, nombre ASC').fetchall()
-    h = conn.execute('SELECT * FROM settings WHERE id = 1').fetchone()
-    conn.close()
-    
-    rows = "".join([f'<tr><td style="padding:10px;">{i["nombre"]}</td><td><form method="POST" style="margin:0;"><input type="hidden" name="toggle_stock" value="{i["id"]}"><input type="hidden" name="current_stock" value="{i["stock"]}"><button type="submit" style="color:{"#2ecc71" if i["stock"]==1 else "#e74c3c"}; background:none; border:none; cursor:pointer; font-weight:800;">{("STOCK" if i["stock"]==1 else "OUT")}</button></form></td><td><form method="POST" style="margin:0;"><input type="hidden" name="delete_id" value="{i["id"]}"><button type="submit" style="color:#e74c3c; background:none; border:none; cursor:pointer;"><i class="fas fa-trash"></i></button></form></td></tr>' for i in items])
-    
-    return f'''<html><head>{BASE_STYLE}</head><body style="padding:20px;"><div class="container" style="max-width:800px; padding-top:20px;">
-        <h2 style="color:var(--accent);">Panel Chef</h2>
-        <form method="POST" style="background:#111; padding:20px; border-radius:10px; border:1px solid #333;">
-            Horario: <input type="number" name="hora_apertura" value="{h['hora_apertura']}" style="width:60px;"> a 
-            <input type="number" name="hora_cierre" value="{h['hora_cierre']}" style="width:60px;">
-            <label style="display:block; margin:10px 0;"><input type="checkbox" name="cierre_forzado" {"checked" if h['cierre_forzado'] else ""}> 🚨 CIERRE DE EMERGENCIA</label>
-            <button name="update_hours" class="btn-buy" style="width:auto; padding:8px 20px;">GUARDAR AJUSTES</button>
-        </form>
-        <hr style="margin:30px 0; border-color:#222;">
-        <form method="POST" enctype="multipart/form-data">
-            <input name="nombre" placeholder="Nombre del plato" required>
-            <input name="precio" type="number" placeholder="Precio ($)" required>
-            <textarea name="descripcion" placeholder="Descripción corta"></textarea>
+    items = Menu.query.all()
+    rows = "".join([f'<tr><td>{i.nombre}</td><td><form method="POST"><input type="hidden" name="toggle_stock" value="{i.id}"><button type="submit">{"ON" if i.stock==1 else "OFF"}</button></form></td><td><form method="POST"><input type="hidden" name="delete_id" value="{i.id}"><button type="submit">X</button></form></td></tr>' for i in items])
+    return render_template_string(f'''<html><head>{BASE_STYLE}</head><body style="padding:20px;">
+        <h2>Panel Chef</h2>
+        <form method="POST">
+            Apertura: <input type="number" name="hora_apertura" value="{h.hora_apertura}" style="width:60px;">
+            Cierre: <input type="number" name="hora_cierre" value="{h.hora_cierre}" style="width:60px;">
+            <label><input type="checkbox" name="cierre_forzado" {"checked" if h.cierre_forzado else ""}> Cierre Total</label>
+            <button name="update_hours" class="btn-buy" style="width:auto; padding:5px 10px;">OK</button>
+        </form><hr>
+        <form method="POST">
+            <input name="nombre" placeholder="Nombre" required><input name="precio" type="number" placeholder="Precio" required>
+            <input name="img_url" placeholder="Link de Imagen (URL)">
             <select name="categoria"><option value="platos">Comida</option><option value="bebidas">Bebida</option></select>
-            <label><input type="checkbox" name="es_combo"> Es Combo (Inicio)</label>
-            <input type="file" name="foto">
-            <button type="submit" class="btn-buy">AÑADIR AL MENÚ</button>
+            <label><input type="checkbox" name="es_combo"> Combo Inicio</label>
+            <button type="submit" class="btn-buy">AGREGAR</button>
         </form>
-        <table style="width:100%; margin-top:30px; border-collapse:collapse; background:#0A0A0A;">{rows}</table>
-        <br><a href="/logout" style="color:gray;">Cerrar Sesión</a>
-    </div></body></html>'''
+        <table style="width:100%; color:white; margin-top:20px;">{rows}</table>
+    </body></html>''')
 
 @app.route('/cocina_secreta', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        conn = get_db_connection()
-        admin = conn.execute('SELECT * FROM config WHERE usuario = ?', (request.form.get('usuario'),)).fetchone()
-        conn.close()
-        if admin and check_password_hash(admin['password'], request.form.get('password')):
+        admin = Config.query.filter_by(usuario=request.form.get('usuario')).first()
+        if admin and check_password_hash(admin.password, request.form.get('password')):
             session['logged_in'] = True; return redirect('/panel_chef_privado')
-    return f'<html><head>{BASE_STYLE}</head><body style="display:flex; justify-content:center; align-items:center; height:100vh;"><div style="background:#111; padding:40px; border:1px solid var(--accent); border-radius:15px; width:350px;"><h2>ACCESO</h2><br><form method="POST"><input name="usuario" placeholder="Usuario"><input type="password" name="password" placeholder="Clave"><button type="submit" class="btn-buy">ENTRAR</button></form></div></body></html>'
+    return render_template_string(f'<html><head>{BASE_STYLE}</head><body style="display:flex; justify-content:center; align-items:center; height:100vh;"><form method="POST" style="background:#111; padding:30px; border-radius:15px; border:1px solid var(--accent);"><h2 style="margin-bottom:20px;">LOGIN</h2><input name="usuario" placeholder="Usuario"><input type="password" name="password" placeholder="Clave"><button type="submit" class="btn-buy">ENTRAR</button></form></body></html>')
 
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None); return redirect('/')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8081)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8081)))
